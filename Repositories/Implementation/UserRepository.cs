@@ -161,7 +161,6 @@ namespace ChildCareApi.Repositories.Implementation
 
             return null; 
         }
-
         public async Task<User> RegisterAsync(User user)
         {
             using var connection = new SqlConnection(_connectionString);

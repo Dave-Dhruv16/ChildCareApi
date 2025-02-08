@@ -12,7 +12,6 @@ namespace ChildCareApi.Controllers
     {
         private readonly IUserRepository _userRepository;
         private readonly IConfiguration _configuration;
-
         public UserController(IUserRepository userRepository, IConfiguration configuration)
         {
             _userRepository = userRepository;
@@ -52,7 +51,6 @@ namespace ChildCareApi.Controllers
 
             return StatusCode(500, new { message = "Unknown error occurred while checking database connection." });
         }
-
 
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAllUsers()
@@ -104,14 +102,14 @@ namespace ChildCareApi.Controllers
         }
 
         [HttpPost("Login")]
-        public async Task<IActionResult> Login([FromBody] User loginDetails)
+        public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
         {
-            if (string.IsNullOrEmpty(loginDetails.Email) || string.IsNullOrEmpty(loginDetails.Password))
+            if (string.IsNullOrEmpty(loginRequest.Email) || string.IsNullOrEmpty(loginRequest.Password))
             {
                 return BadRequest(new { message = "Email and Password are required for login." });
             }
 
-            var user = await _userRepository.LoginAsync(loginDetails.Email, loginDetails.Password);
+            var user = await _userRepository.LoginAsync(loginRequest.Email, loginRequest.Password);
 
             if (user == null)
             {
