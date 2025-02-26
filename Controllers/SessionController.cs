@@ -1,11 +1,13 @@
 ﻿using ChildCareApi.Models;
 using ChildCareApi.Repositories.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChildCareApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class SessionController : ControllerBase
     {
         private readonly ISessionRepository _sessionRepository;

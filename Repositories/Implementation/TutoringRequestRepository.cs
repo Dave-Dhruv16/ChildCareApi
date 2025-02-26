@@ -89,22 +89,22 @@ namespace ChildCareApi.Repositories.Implementation
             using (var command = new SqlCommand("spGetTutoringRequestsByStudentId", connection))
             {
                 command.CommandType = CommandType.StoredProcedure;
-                command.Parameters.AddWithValue("@StudentId", studentId);
+                command.Parameters.AddWithValue("@StudentId", studentId); // Ensuring that studentId is passed as a parameter
 
                 await connection.OpenAsync();
                 using (var reader = await command.ExecuteReaderAsync())
                 {
-                    while (await reader.ReadAsync())
+                    while (await reader.ReadAsync())  // Reading the data row by row
                     {
                         requests.Add(new TutoringRequest
                         {
                             RequestId = reader.GetInt32("RequestId"),
                             StudentId = reader.GetInt32("StudentId"),
                             Subject = reader.GetString("Subject"),
-                            Description = reader.GetString("Description"),
+                            Description = reader.IsDBNull("Description") ? null : reader.GetString("Description"),
                             RequestedAt = reader.GetDateTime("RequestedAt"),
                             Status = reader.GetString("Status"),
-                            TutorId = reader.IsDBNull("TutorId") ? null : reader.GetInt32("TutorId"),
+                            TutorId = reader.IsDBNull("TutorId") ? null : reader.GetInt32("TutorId"),  // Handle NULL for TutorId
                             AcceptedAt = reader.IsDBNull("AcceptedAt") ? null : reader.GetDateTime("AcceptedAt")
                         });
                     }
@@ -116,6 +116,16 @@ namespace ChildCareApi.Repositories.Implementation
 
         public async Task AddRequestAsync(TutoringRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request.Subject))
+            {
+                throw new ArgumentException("Subject is required.");
+            }
+
+            if (request.StudentId <= 0)
+            {
+                throw new ArgumentException("Invalid Student ID.");
+            }
+
             using var connection = new SqlConnection(_connectionString);
             using var command = new SqlCommand("spInsertTutoringRequest", connection)
             {
@@ -126,7 +136,7 @@ namespace ChildCareApi.Repositories.Implementation
             command.Parameters.AddWithValue("@Subject", request.Subject);
             command.Parameters.AddWithValue("@Description", (object?)request.Description ?? DBNull.Value);
 
-            connection.Open();
+            await connection.OpenAsync();
             await command.ExecuteNonQueryAsync();
         }
 
@@ -157,6 +167,40 @@ namespace ChildCareApi.Repositories.Implementation
                 await command.ExecuteNonQueryAsync();
             }
         }
+
+        public async Task<IEnumerable<TutoringRequest>> GetRequestsByTutorIdAsync(int tutorId)
+        {
+            var requests = new List<TutoringRequest>();
+
+            using (var connection = new SqlConnection(_connectionString))
+            using (var command = new SqlCommand("spGetRequestsByTutorId", connection))
+            {
+                command.CommandType = CommandType.StoredProcedure;
+                command.Parameters.AddWithValue("@TutorId", tutorId);
+
+                await connection.OpenAsync();
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        requests.Add(new TutoringRequest
+                        {
+                            RequestId = reader.GetInt32("RequestId"),
+                            StudentId = reader.GetInt32("StudentId"),
+                            Subject = reader.GetString("Subject"),
+                            Description = reader.IsDBNull("Description") ? null : reader.GetString("Description"),
+                            RequestedAt = reader.GetDateTime("RequestedAt"),
+                            Status = reader.GetString("Status"),
+                            TutorId = reader.IsDBNull("TutorId") ? null : reader.GetInt32("TutorId"),
+                            AcceptedAt = reader.IsDBNull("AcceptedAt") ? null : reader.GetDateTime("AcceptedAt")
+                        });
+                    }
+                }
+            }
+
+            return requests;
+        }
+
 
         public async Task<bool> AcceptRequestAsync(int requestId, int tutorId)
         {

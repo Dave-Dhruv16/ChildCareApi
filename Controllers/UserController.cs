@@ -2,16 +2,19 @@
 using ChildCareApi.Repositories.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 
 namespace ChildCareApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class UserController : ControllerBase
     {
         private readonly IUserRepository _userRepository;
         private readonly IConfiguration _configuration;
+
         public UserController(IUserRepository userRepository, IConfiguration configuration)
         {
             _userRepository = userRepository;
@@ -32,7 +35,7 @@ namespace ChildCareApi.Controllers
             {
                 using (var connection = new SqlConnection(connectionString))
                 {
-                    connection.Open(); 
+                    connection.Open();
 
                     if (connection.State == System.Data.ConnectionState.Open)
                     {
@@ -55,7 +58,20 @@ namespace ChildCareApi.Controllers
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAllUsers()
         {
-            return Ok(await _userRepository.GetAllUsersAsync());
+            var users = await _userRepository.GetAllUsersAsync();
+
+            // Exclude password hashes from the response
+            var userList = users.Select(user => new
+            {
+                user.UserId,
+                user.FirstName,
+                user.LastName,
+                user.Email,
+                user.RoleId,
+                user.IsActive
+            });
+
+            return Ok(userList);
         }
 
         [HttpGet("GetById/{id}")]
@@ -63,7 +79,36 @@ namespace ChildCareApi.Controllers
         {
             var user = await _userRepository.GetUserByIdAsync(id);
             if (user == null) return NotFound(new { message = $"User with ID {id} not found." });
-            return Ok(user);
+
+            // Exclude the password from the response
+            return Ok(new
+            {
+                user.UserId,
+                user.FirstName,
+                user.LastName,
+                user.Email,
+                user.RoleId,
+                user.IsActive
+            });
+        }
+
+        [HttpGet("GetByIdWithPassword/{id}")]
+        public async Task<IActionResult> GetUserByIdWithPassword(int id)
+        {
+            var user = await _userRepository.GetUserByIdAsync(id);
+            if (user == null) return NotFound(new { message = $"User with ID {id} not found." });
+
+            // Return user data along with the decrypted password
+            return Ok(new
+            {
+                user.UserId,
+                user.FirstName,
+                user.LastName,
+                user.Email,
+                user.RoleId,
+                user.IsActive,
+                Password = user.Password
+            });
         }
 
         [HttpPost("Add")]
@@ -71,8 +116,19 @@ namespace ChildCareApi.Controllers
         {
             if (user == null) return BadRequest(new { message = "Invalid user data." });
 
+            // Hash the password using BCrypt with explicit namespace
+            user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
             await _userRepository.AddUserAsync(user);
-            return CreatedAtAction(nameof(GetUserById), new { id = user.UserId }, user);
+
+            return CreatedAtAction(nameof(GetUserById), new { id = user.UserId }, new
+            {
+                user.UserId,
+                user.FirstName,
+                user.LastName,
+                user.Email,
+                user.RoleId,
+                user.IsActive
+            });
         }
 
         [HttpPut("Update/{id}")]
@@ -81,6 +137,12 @@ namespace ChildCareApi.Controllers
             if (id != user.UserId)
             {
                 return BadRequest(new { message = "UserId in URL and payload do not match." });
+            }
+
+            // Hash the password if provided in the update request
+            if (!string.IsNullOrWhiteSpace(user.Password))
+            {
+                user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
             }
 
             var result = await _userRepository.UpdateUserAsync(user);
@@ -99,45 +161,6 @@ namespace ChildCareApi.Controllers
 
             await _userRepository.DeleteUserAsync(id);
             return NoContent();
-        }
-
-        [HttpPost("Login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
-        {
-            if (string.IsNullOrEmpty(loginRequest.Email) || string.IsNullOrEmpty(loginRequest.Password))
-            {
-                return BadRequest(new { message = "Email and Password are required for login." });
-            }
-
-            var user = await _userRepository.LoginAsync(loginRequest.Email, loginRequest.Password);
-
-            if (user == null)
-            {
-                return Unauthorized(new { message = "Invalid email or password." });
-            }
-
-            return Ok(new
-            {
-                user.UserId,
-                user.FirstName,
-                user.LastName,
-                user.Email,
-                user.RoleId
-            });
-        }
-
-        [HttpPost("Register")]
-        public async Task<IActionResult> Register([FromBody] User newUser)
-        {
-            if (newUser == null) return BadRequest(new { message = "Invalid registration data." });
-
-            var user = await _userRepository.RegisterAsync(newUser);
-            if (user == null)
-            {
-                return Conflict(new { message = "Email already exists." });
-            }
-
-            return CreatedAtAction(nameof(GetUserById), new { id = user.UserId }, user);
         }
     }
 }

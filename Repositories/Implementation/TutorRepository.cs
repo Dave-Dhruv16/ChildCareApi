@@ -75,6 +75,36 @@ namespace ChildCareApi.Repositories.Implementation
             return tutor;
         }
 
+        public async Task<Tutor?> GetTutorByUserIdAsync(int userId)
+        {
+            Tutor? tutor = null;
+
+            using var connection = new SqlConnection(_connectionString);
+            using var command = new SqlCommand("spGetTutorByUserId", connection)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+
+            command.Parameters.AddWithValue("@UserId", userId);
+            await connection.OpenAsync();
+
+            using var reader = await command.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                tutor = new Tutor
+                {
+                    TutorId = reader.GetInt32("TutorId"),
+                    UserId = reader.GetInt32("UserId"),
+                    Qualifications = reader["Qualifications"] as string,
+                    Specialization = reader["Specialization"] as string,
+                    ExperienceYears = reader["ExperienceYears"] as int?
+                };
+            }
+
+            return tutor;
+        }
+
+
         public async Task<int> AddTutorAsync(Tutor tutor)
         {
             using var connection = new SqlConnection(_connectionString);

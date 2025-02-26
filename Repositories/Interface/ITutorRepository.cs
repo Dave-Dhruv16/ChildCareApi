@@ -8,6 +8,7 @@ namespace ChildCareApi.Repositories.Interfaces
     {
         Task<IEnumerable<Tutor>> GetAllTutorsAsync();
         Task<Tutor?> GetTutorByIdAsync(int tutorId);
+        Task<Tutor?> GetTutorByUserIdAsync(int tutorId);
         Task<int> AddTutorAsync(Tutor tutor);
         Task<int> UpdateTutorAsync(Tutor tutor);
         Task<int> DeleteTutorAsync(int tutorId);

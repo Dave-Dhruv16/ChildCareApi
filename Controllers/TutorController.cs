@@ -1,11 +1,13 @@
 ﻿using ChildCareApi.Models;
 using ChildCareApi.Repositories.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChildCareApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class TutorController : ControllerBase
     {
         private readonly ITutorRepository _tutorRepository;
@@ -14,6 +16,7 @@ namespace ChildCareApi.Controllers
         {
             _tutorRepository = tutorRepository;
         }
+
 
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAllTutors()
@@ -29,6 +32,15 @@ namespace ChildCareApi.Controllers
             if (tutor == null) return NotFound(new { message = $"Tutor with ID {id} not found." });
             return Ok(tutor);
         }
+
+        [HttpGet("GetByUserId/{id}")]
+        public async Task<IActionResult> GetTutorByUserId(int id)
+        {
+            var tutor = await _tutorRepository.GetTutorByUserIdAsync(id);
+            if (tutor == null) return NotFound(new { message = $"Tutor with UserId {id} not found." });
+            return Ok(tutor);
+        }
+
 
         [HttpPost("Add")]
         public async Task<IActionResult> AddTutor([FromBody] Tutor tutor)
